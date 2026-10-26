@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#102a43">
+<title>OpenShift Troubleshooting Simulator</title>
+<style>
+:root{
+  --navy:#102a43;--blue:#1769aa;--blue2:#dceeff;--red:#c62828;--redbg:#fff0f0;
+  --green:#16794b;--greenbg:#eaf8f0;--amber:#945b00;--amberbg:#fff6df;
+  --ink:#172b4d;--muted:#5d6b82;--line:#d5deea;--panel:#fff;--bg:#f4f7fb;
+  --shadow:0 8px 24px rgba(16,42,67,.08);--radius:18px
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.5}
+button,select{font:inherit}
+button{cursor:pointer}
+header{background:linear-gradient(120deg,#102a43,#174c78);color:#fff;padding:28px 18px 32px}
+.wrap{max-width:1100px;margin:auto}
+.eyebrow{text-transform:uppercase;letter-spacing:.12em;font-size:.76rem;font-weight:800;color:#a9d6ff}
+h1{font-size:clamp(1.8rem,4vw,3rem);line-height:1.1;margin:.5rem 0}
+header p{max-width:760px;color:#e2edf7;margin:10px 0 0}
+main{max-width:1100px;margin:22px auto;padding:0 16px 40px}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:16px}
+.pills{display:flex;flex-wrap:wrap;gap:8px}
+.btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:999px;padding:10px 15px;font-weight:750;transition:.15s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px #102a4317}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.danger{background:var(--redbg);border-color:#efb5b5;color:var(--red)}
+.btn.active{outline:3px solid #8fc8ff;outline-offset:1px}
+.status{display:inline-flex;gap:8px;align-items:center;padding:8px 12px;border-radius:999px;font-size:.85rem;font-weight:800}
+.status.ok{background:var(--greenbg);color:var(--green)}
+.status.bad{background:var(--redbg);color:var(--red)}
+.grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(280px,.85fr);gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);min-width:0}
+.card h2{font-size:1.15rem;margin:0 0 5px}
+.sub{color:var(--muted);font-size:.92rem;margin:0 0 14px}
+.diagram{padding:14px 10px;background:linear-gradient(180deg,#f8fbff,#eef5fc);border:1px solid #d8e6f5;border-radius:14px}
+.nodes{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;align-items:center}
+.node-wrap{min-width:0;position:relative}
+.node{width:100%;min-height:102px;border:2px solid #c8d7e8;background:#fff;border-radius:14px;padding:10px 5px;color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+.node .emoji{font-size:1.6rem}
+.node strong{font-size:.88rem}
+.node small{font-size:.7rem;color:var(--muted);text-align:center;line-height:1.25}
+.node.selected{border-color:var(--blue);background:#e7f3ff;box-shadow:0 0 0 3px #1769aa1b}
+.node.fail{border-color:#df5555;background:#fff0f0}
+.node.good{border-color:#48a87b;background:#edfff5}
+.arrow{position:absolute;right:-11px;top:43%;z-index:2;color:#7d8ea5;font-size:1.2rem;font-weight:900}
+.node-wrap:last-child .arrow{display:none}
+.flow-label{margin:12px 0 0;font-size:.83rem;color:var(--muted);text-align:center}
+.detail{margin-top:14px;border-radius:13px;padding:15px;background:#f7faff;border:1px solid #dbe8f5}
+.detail h3{margin:0 0 5px;font-size:1.05rem}
+.detail p{margin:5px 0}
+.detail ul{margin:8px 0 0;padding-left:20px}
+.detail li{margin:4px 0}
+.tip{padding:12px 14px;border-radius:12px;background:var(--amberbg);color:#684400;margin-top:12px;font-size:.9rem}
+.side-stack{display:grid;gap:16px;align-content:start}
+.health-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #edf1f6}
+.health-row:last-child{border-bottom:0}
+.dot{height:11px;width:11px;border-radius:50%;margin-top:6px;flex:none}
+.dot.green{background:#2f9d69}.dot.red{background:#d33}.dot.amber{background:#e1a126}
+.health-row strong{display:block;font-size:.92rem}
+.health-row span{display:block;color:var(--muted);font-size:.82rem}
+code,pre{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#0d2035;color:#e3f0ff;padding:15px;border-radius:12px;font-size:.83rem;margin:10px 0}
+.copyrow{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.copyrow h2{margin:0}
+.copy{padding:6px 10px;font-size:.8rem}
+.quiz-options{display:grid;gap:9px;margin-top:12px}
+.option{display:flex;gap:10px;align-items:flex-start;text-align:left;width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink)}
+.option:hover{border-color:#7ab8ef}
+.option .letter{flex:none;width:28px;height:28px;border-radius:50%;background:#e6f2ff;color:#145b94;display:grid;place-items:center;font-weight:850}
+.option.correct{border-color:#38a169;background:#effcf5}
+.option.incorrect{border-color:#dc5555;background:#fff2f2}
+.feedback{margin-top:12px;padding:13px;border-radius:12px;display:none}
+.feedback.show{display:block}
+.feedback.correct{background:var(--greenbg);color:#145d3b}
+.feedback.incorrect{background:var(--redbg);color:#8e1f1f}
+.footer{text-align:center;color:var(--muted);font-size:.82rem;padding:20px 0 0}
+.tag{display:inline-block;background:#edf4fb;color:#31516f;padding:4px 8px;border-radius:6px;font-size:.76rem;font-weight:700;margin:2px}
+@media(max-width:800px){.grid{grid-template-columns:1fr}.nodes{grid-template-columns:1fr;gap:6px}.node{min-height:70px;flex-direction:row;justify-content:flex-start;padding:10px 14px;text-align:left}.node .emoji{width:34px;text-align:center}.node small{text-align:left;margin-left:auto;max-width:42%}.arrow{right:auto;left:50%;top:auto;bottom:-16px;transform:translateX(-50%) rotate(90deg)}.node-wrap{margin-bottom:5px}.node-wrap:last-child{margin-bottom:0}.flow-label{margin-top:8px}.toolbar{align-items:flex-start}.card{padding:15px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="eyebrow">Cloud-native learning lab</div>
+    <h1>OpenShift Troubleshooting Simulator</h1>
+    <p>Explore the request path, simulate an HTTP 503 incident, inspect each component, and test your troubleshooting instincts. No cluster connection required.</p>
+  </div>
+</header>
+<main>
+  <div class="toolbar">
+    <div class="pills" aria-label="Choose a scenario">
+      <button class="btn primary active" id="healthyBtn" type="button">✓ Healthy application</button>
+      <button class="btn danger" id="incidentBtn" type="button">⚠ Simulate HTTP 503</button>
+      <button class="btn" id="resetBtn" type="button">↻ Reset</button>
+    </div>
+    <span id="statusBadge" class="status ok" role="status">● Healthy · HTTP 200</span>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Request path</h2>
+      <p class="sub">Select any component to inspect what it does and what to check.</p>
+      <div class="diagram">
+        <div class="nodes" id="nodes">
+          <div class="node-wrap"><button class="node" data-node="user"><span class="emoji">👤</span><strong>User / Client</strong><small>Starts request</small></button><span class="arrow">→</span></div>
+          <div class="node-wrap"><button class="node" data-node="route"><span class="emoji">🌐</span><strong>Route</strong><small>External entry</small></button><span class="arrow">→</span></div>
+          <div class="node-wrap"><button class="node" data-node="service"><span class="emoji">🔀</span><strong>Service</strong><small>Finds endpoints</small></button><span class="arrow">→</span></div>
+          <div class="node-wrap"><button class="node" data-node="pod"><span class="emoji">📦</span><strong>Pod</strong><small id="podState">Running · Ready</small></button><span class="arrow">→</span></div>
+          <div class="node-wrap"><button class="node" data-node="app"><span class="emoji">⚙️</span><strong>Application</strong><small id="appState">Responding</small></button></div>
+        </div>
+        <p class="flow-label" id="flowLabel">Request reaches a ready Pod and the application returns a successful response.</p>
+      </div>
+      <div class="detail" id="detail" aria-live="polite">
+        <h3>Choose a component</h3><p>Its role and troubleshooting checks will appear here.</p>
+      </div>
+      <div class="tip"><strong>Remember:</strong> A Pod in <code>Running</code> state is not automatically ready or able to serve successful requests.</div>
+    </section>
+
+    <aside class="side-stack">
+      <section class="card">
+        <h2>Incident signals</h2>
+        <p class="sub">Illustrative signals for the selected scenario.</p>
+        <div class="health-row"><i class="dot green" id="routeDot"></i><div><strong>Route</strong><span id="routeSignal">Configured · request can enter</span></div></div>
+        <div class="health-row"><i class="dot green" id="serviceDot"></i><div><strong>Service endpoints</strong><span id="serviceSignal">Ready endpoints available</span></div></div>
+        <div class="health-row"><i class="dot green" id="podDot"></i><div><strong>Pod</strong><span id="podSignal">Running and Ready</span></div></div>
+        <div class="health-row"><i class="dot green" id="appDot"></i><div><strong>Application</strong><span id="appSignal">Health check passing</span></div></div>
+      </section>
+      <section class="card">
+        <div class="copyrow"><h2>Useful <code>oc</code> commands</h2><button class="btn copy" id="copyCommands" type="button">Copy</button></div>
+        <p class="sub">Run these in a terminal already authenticated to the right cluster and project.</p>
+<pre id="commands">oc project
+oc get pods
+oc describe pod &lt;pod-name&gt;
+oc get svc
+oc get endpoints &lt;service-name&gt;
+oc get routes
+oc logs &lt;pod-name&gt;</pre>
+        <p id="copyNote" class="sub" aria-live="polite">Replace placeholders with your resource names.</p>
+      </section>
+    </aside>
+  </div>
+
+  <section class="card" style="margin-top:16px">
+    <h2>Knowledge check</h2>
+    <p class="sub">Scenario: the Pod shows <code>Running</code>, but users receive <code>503 Service Unavailable</code>. What is a strong first troubleshooting step?</p>
+    <div class="quiz-options" id="quizOptions">
+      <button class="option" data-answer="a"><span class="letter">A</span><span><strong>Restart the Pod immediately</strong><br><small>Change something before gathering evidence.</small></span></button>
+      <button class="option" data-answer="b"><span class="letter">B</span><span><strong>Inspect Service endpoints and Route configuration</strong><br><small>Check whether traffic has a valid path to ready backends.</small></span></button>
+      <button class="option" data-answer="c"><span class="letter">C</span><span><strong>Assume the cluster is down</strong><br><small>Infer a broad outage from one symptom.</small></span></button>
+      <button class="option" data-answer="d"><span class="letter">D</span><span><strong>Delete the deployment</strong><br><small>Use a destructive action as the first response.</small></span></button>
+    </div>
+    <div class="feedback" id="quizFeedback" role="status"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:13px">
+      <button class="btn" id="quizReset" type="button">Try again</button>
+      <button class="btn primary" id="nextTip" type="button">Show probe differences</button>
+    </div>
+    <div id="probeTip" class="detail" hidden>
+      <h3>Readiness vs. liveness vs. startup</h3>
+      <ul>
+        <li><strong>Readiness:</strong> determines whether a Pod should receive Service traffic.</li>
+        <li><strong>Liveness:</strong> repeated failures can cause the container to be restarted.</li>
+        <li><strong>Startup:</strong> gives a slow-starting application time to initialize before liveness checks take effect.</li>
+      </ul>
+    </div>
+  </section>
+  <p class="footer">Standalone learning demo · No external libraries, images, network requests, or cluster access · Use your team's runbooks for production incidents.</p>
+</main>
+<script>
+(function(){
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  let scenario = "healthy";
+  let selected = "service";
+  const info = {
+    user: {
+      title:"User / Client",
+      healthy:"The client sends a request to the application.",
+      incident:"The client receives HTTP 503. Confirm the exact URL, timestamp, and whether all users or only one client are affected.",
+      checks:["Reproduce the request and record the response code.","Check DNS, URL, proxy, and client-side errors.","Compare one failing request with a known-good request."]
+    },
+    route: {
+      title:"Route",
+      healthy:"The Route exposes the application and directs traffic to a target Service.",
+      incident:"A Route or its target configuration may be incorrect, or the selected backend may have no usable endpoints.",
+      checks:["Run oc get routes and oc describe route <route-name>.","Verify host, target Service, TLS settings, and admitted status.","Check whether the Route points to the intended Service."]
+    },
+    service: {
+      title:"Service",
+      healthy:"The Service selects matching Pods and routes traffic to available endpoints.",
+      incident:"A common cause is a Service with no ready endpoints. Incorrect selectors or ports can also break the path.",
+      checks:["Run oc get svc and oc describe svc <service-name>.","Inspect endpoints with oc get endpoints <service-name>.","Verify selectors, targetPort, and Pod labels."]
+    },
+    pod: {
+      title:"Pod",
+      healthy:"The Pod is Running and Ready, so it can be considered for Service traffic.",
+      incident:"The Pod may still be Running while NotReady, restarting, resource constrained, or failing a health check.",
+      checks:["Run oc get pods and oc describe pod <pod-name>.","Inspect readiness/liveness/startup probe events and restart counts.","Check resource limits, recent events, and container status."]
+    },
+    app: {
+      title:"Application",
+      healthy:"The application accepts the request and returns a successful response.",
+      incident:"The application may be failing requests, still starting, or unable to reach a downstream dependency.",
+      checks:["Run oc logs <pod-name> and inspect errors around the incident timestamp.","Test the configured health endpoint and application dependencies.","Compare application logs with probe failures and response codes."]
+    }
+  };
+  function setDot(id, state){ $(id).className = "dot " + state; }
+  function setScenario(next){
+    scenario = next;
+    const bad = next === "incident";
+    $("healthyBtn").classList.toggle("active",!bad);
+    $("incidentBtn").classList.toggle("active",bad);
+    $("statusBadge").className = "status " + (bad ? "bad":"ok");
+    $("statusBadge").textContent = bad ? "● Simulated incident · HTTP 503" : "● Healthy · HTTP 200";
+    $("podState").textContent = bad ? "Running · readiness unknown" : "Running · Ready";
+    $("appState").textContent = bad ? "Request failing" : "Responding";
+    $("flowLabel").textContent = bad
+      ? "A 503 is a symptom, not a root cause. Trace the request path and verify each layer."
+      : "Request reaches a ready Pod and the application returns a successful response.";
+    setDot("routeDot",bad?"amber":"green");
+    setDot("serviceDot",bad?"red":"green");
+    setDot("podDot",bad?"amber":"green");
+    setDot("appDot",bad?"red":"green");
+    $("routeSignal").textContent = bad ? "Verify target and admitted status" : "Configured · request can enter";
+    $("serviceSignal").textContent = bad ? "Check for missing ready endpoints" : "Ready endpoints available";
+    $("podSignal").textContent = bad ? "Running does not prove readiness" : "Running and Ready";
+    $("appSignal").textContent = bad ? "Investigate errors and dependencies" : "Health check passing";
+    renderNodes(); renderDetail();
+  }
+  function renderNodes(){
+    document.querySelectorAll(".node").forEach(btn=>{
+      const key=btn.dataset.node;
+      btn.classList.toggle("selected",key===selected);
+      btn.classList.remove("fail","good");
+      if(scenario==="incident" && ["service","app"].includes(key)) btn.classList.add("fail");
+      else if(scenario==="healthy") btn.classList.add("good");
+    });
+  }
+  function renderDetail(){
+    const d=info[selected];
+    const lead=scenario==="incident"?d.incident:d.healthy;
+    $("detail").innerHTML="<h3>"+d.title+"</h3><p>"+lead+"</p><strong>What to check</strong><ul>"+d.checks.map(x=>"<li>"+x.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")+"</li>").join("")+"</ul>";
+  }
+  document.querySelectorAll(".node").forEach(btn=>btn.addEventListener("click",()=>{
+    selected=btn.dataset.node;renderNodes();renderDetail();
+  }));
+  $("healthyBtn").addEventListener("click",()=>setScenario("healthy"));
+  $("incidentBtn").addEventListener("click",()=>setScenario("incident"));
+  $("resetBtn").addEventListener("click",()=>{selected="service";setScenario("healthy");});
+  $("copyCommands").addEventListener("click",async()=>{
+    const text=$("commands").textContent;
+    try{
+      await navigator.clipboard.writeText(text);
+      $("copyNote").textContent="Commands copied. Replace placeholders before running.";
+    }catch(e){
+      const range=document.createRange();range.selectNodeContents($("commands"));
+      const sel=window.getSelection();sel.removeAllRanges();sel.addRange(range);
+      $("copyNote").textContent="Clipboard access unavailable. Commands are selected; copy them manually.";
+    }
+  });
+  const feedback=$("quizFeedback");
+  document.querySelectorAll(".option").forEach(btn=>btn.addEventListener("click",()=>{
+    document.querySelectorAll(".option").forEach(b=>b.classList.remove("correct","incorrect"));
+    const correct=btn.dataset.answer==="b";
+    btn.classList.add(correct?"correct":"incorrect");
+    feedback.className="feedback show "+(correct?"correct":"incorrect");
+    feedback.textContent=correct
+      ?"Correct. Inspecting the Service endpoints and Route is a strong evidence-first step. Then follow the evidence into readiness, Pod events, and application logs. The actual first check can vary with the incident symptoms."
+      :"Not the best first step. Avoid guessing or making disruptive changes. Inspect the Route and Service endpoints, then follow the evidence into Pod readiness and application logs.";
+  }));
+  $("quizReset").addEventListener("click",()=>{
+    document.querySelectorAll(".option").forEach(b=>b.classList.remove("correct","incorrect"));
+    feedback.className="feedback";feedback.textContent="";
+  });
+  $("nextTip").addEventListener("click",()=>{
+    const tip=$("probeTip");tip.hidden=!tip.hidden;
+    $("nextTip").textContent=tip.hidden?"Show probe differences":"Hide probe differences";
+  });
+  setScenario("healthy");
+})();
+</script>
+</body>
+</html>
